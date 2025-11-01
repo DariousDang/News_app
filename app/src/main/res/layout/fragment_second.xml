@@ -16,14 +16,15 @@
             android:layout_height="wrap_content"
             android:textStyle="bold"
             android:textSize="20sp"
-            android:paddingBottom="8dp" />
+            android:paddingBottom="8dp"
+            android:textColor="@color/black" />
 
         <TextView
             android:id="@+id/publishedAtText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
+            android:textColor="@color/mid_gray"
             android:paddingBottom="12dp" />
 
         <TextView
@@ -37,7 +38,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:autoLink="web"
-            android:textColorLink="@color/purple_500"
+            android:textColorLink="@color/dark_gray"
             android:paddingBottom="24dp" />
 
         <LinearLayout

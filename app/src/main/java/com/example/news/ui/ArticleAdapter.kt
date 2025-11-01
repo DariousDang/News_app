@@ -1,5 +1,6 @@
 package com.example.news.ui
 
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -7,6 +8,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.news.R
 import com.example.news.model.Article
 
@@ -47,22 +49,59 @@ class ArticleAdapter(
     }
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        private val icon: ImageView = view.findViewById(R.id.item_icon)
-        private val title: TextView = view.findViewById(R.id.item_title)
-        private val subtitle: TextView = view.findViewById(R.id.item_subtitle)
-        private val saveIcon: ImageView = view.findViewById(R.id.item_save)
+    private val icon: ImageView = view.findViewById(R.id.item_icon)
+    private val title: TextView = view.findViewById(R.id.item_title)
+    private val subtitle: TextView = view.findViewById(R.id.item_subtitle)
+    private val bookmarkIcon: ImageView = view.findViewById(R.id.item_bookmark)
+    private val shareIcon: ImageView = view.findViewById(R.id.item_share)
 
         fun bind(a: Article, isRemote: Boolean) {
             title.text = a.title
             subtitle.text = a.description ?: ""
             val ctx = itemView.context
-            icon.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_launcher_foreground))
-            // color accent for remote vs saved
-            val color = if (isRemote) R.color.teal_200 else R.color.purple_200
+            // Load thumbnail with Glide only for valid http(s) URLs; fallback to app icon
+            val img = a.imageUrl?.trim()
+            val validUrl = if (!img.isNullOrBlank() && (img.startsWith("http://") || img.startsWith("https://"))) img else null
+            if (validUrl != null) {
+                try {
+                    Glide.with(ctx)
+                        .load(validUrl)
+                        .centerCrop()
+                        .placeholder(R.drawable.ic_launcher_foreground)
+                        .error(R.drawable.ic_launcher_foreground)
+                        .into(icon)
+                } catch (e: Exception) {
+                    // swallow Glide errors and show placeholder
+                    icon.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_launcher_foreground))
+                }
+            } else {
+                icon.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_launcher_foreground))
+            }
+            // Monochrome backgrounds: remote items slightly gray, saved items white
+            val color = if (isRemote) R.color.light_gray else R.color.white
             itemView.setBackgroundColor(ContextCompat.getColor(ctx, color))
 
-            saveIcon.setOnClickListener {
+            // enforce text/icon colors to monochrome palette
+            title.setTextColor(ContextCompat.getColor(ctx, R.color.black))
+            subtitle.setTextColor(ContextCompat.getColor(ctx, R.color.mid_gray))
+            bookmarkIcon.setColorFilter(ContextCompat.getColor(ctx, R.color.dark_gray))
+            // bookmark state reflects whether article has an id (saved locally)
+            val isSaved = a.id != null
+            val bmDrawable = if (isSaved) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border
+            bookmarkIcon.setImageDrawable(ContextCompat.getDrawable(ctx, bmDrawable))
+            bookmarkIcon.setOnClickListener {
                 onSaveClick(a)
+            }
+
+            shareIcon.setOnClickListener {
+                // open system share sheet with article URL (fallback to title)
+                val shareText = a.url ?: a.title
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                }
+                val chooser = Intent.createChooser(intent, ctx.getString(R.string.share_article))
+                ctx.startActivity(chooser)
             }
 
             itemView.setOnClickListener {

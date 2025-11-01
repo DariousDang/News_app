@@ -30,6 +30,8 @@ class FirstFragment : Fragment() {
 
     private lateinit var adapter: ArticleAdapter
     private lateinit var viewModel: NewsViewModel
+    private var latestHeadlines: List<com.example.news.model.Article> = emptyList()
+    private var latestSaved: List<com.example.news.model.Article> = emptyList()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -43,15 +45,9 @@ class FirstFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // Setup ViewModel with repository that needs a Context
-        val repo = ArticleRepository(requireContext())
-        viewModel = ViewModelProvider(this, NewsViewModelFactory(repo)).get(NewsViewModel::class.java)
-
-        // Warn if API key is missing in BuildConfig (local.properties -> NEWS_API_KEY)
-        if (BuildConfig.NEWS_API_KEY.isBlank()) {
-            Snackbar.make(binding.root, "API key missing — add NEWS_API_KEY to local.properties and rebuild.", Snackbar.LENGTH_INDEFINITE)
-                .setAction("OK") { /* dismiss */ }
-                .show()
-        }
+    val repo = ArticleRepository(requireContext())
+    // Use activity-scoped ViewModel so other fragments (Add/Edit/Detail) share the same LiveData
+    viewModel = ViewModelProvider(requireActivity(), NewsViewModelFactory(repo)).get(NewsViewModel::class.java)
 
         // RecyclerView + adapter
         adapter = ArticleAdapter({ article ->
@@ -65,8 +61,12 @@ class FirstFragment : Fragment() {
             }
             findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment, bundle)
         }, { article ->
-            // on save click -> insert locally
-            viewModel.insertArticle(article)
+            // on save click -> toggle bookmark: if saved (has id) then delete, else insert
+            if (article.id == null) {
+                viewModel.insertArticle(article)
+            } else {
+                viewModel.deleteById(article.id)
+            }
         })
 
         val rv = binding.recyclerView
@@ -76,7 +76,19 @@ class FirstFragment : Fragment() {
 
         // Observe saved articles
         viewModel.savedArticles.observe(viewLifecycleOwner) { list ->
-            adapter.submitSaved(list)
+            latestSaved = list
+            // Build a combined display list: prefer saved entries when URLs match so edits appear in-place
+            val savedByUrl = latestSaved.filter { !it.url.isNullOrBlank() }.associateBy { it.url!! }
+            val combined = latestHeadlines.map { h ->
+                if (!h.url.isNullOrBlank() && savedByUrl.containsKey(h.url)) savedByUrl[h.url]!! else h
+            }.toMutableList()
+            // Append any saved items that aren't represented in headlines
+            val headlinesUrls = latestHeadlines.mapNotNull { it.url }.toSet()
+            val extras = latestSaved.filter { s -> s.url.isNullOrBlank() || !headlinesUrls.contains(s.url) }
+            combined.addAll(extras)
+
+            adapter.submitRemote(combined)
+            adapter.submitSaved(emptyList())
             // show/hide empty state
             binding.emptyView.visibility = if (adapter.itemCount == 0) View.VISIBLE else View.GONE
         }
@@ -102,14 +114,24 @@ class FirstFragment : Fragment() {
 
         // Observe remote headlines
         viewModel.headlines.observe(viewLifecycleOwner) { list ->
-            adapter.submitRemote(list)
+            latestHeadlines = list
+            // Build combined list using latestSaved (may be empty initially)
+            val savedByUrl = latestSaved.filter { !it.url.isNullOrBlank() }.associateBy { it.url!! }
+            val combined = latestHeadlines.map { h ->
+                if (!h.url.isNullOrBlank() && savedByUrl.containsKey(h.url)) savedByUrl[h.url]!! else h
+            }.toMutableList()
+            val headlinesUrls = latestHeadlines.mapNotNull { it.url }.toSet()
+            val extras = latestSaved.filter { s -> s.url.isNullOrBlank() || !headlinesUrls.contains(s.url) }
+            combined.addAll(extras)
+
+            adapter.submitRemote(combined)
             // show/hide empty state
             binding.emptyView.visibility = if (adapter.itemCount == 0) View.VISIBLE else View.GONE
         }
 
-        // initial load
-        viewModel.loadSavedArticles()
-        viewModel.fetchTopHeadlines()
+    // initial load
+    viewModel.loadSavedArticles()
+    viewModel.fetchTopHeadlines()
     }
 
     override fun onDestroyView() {

@@ -25,4 +25,8 @@ class ArticleRepository(context: Context) {
     fun getById(id: Long): Article? {
         return db.getArticleById(id)
     }
+
+    fun getByUrl(url: String): Article? {
+        return db.getArticleByUrl(url)
+    }
 }

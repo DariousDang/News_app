@@ -6,6 +6,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.navigation.fragment.findNavController
 import com.example.news.databinding.FragmentAddEditBinding
 import com.example.news.model.Article
@@ -33,8 +37,9 @@ class AddEditFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val repo = ArticleRepository(requireContext())
-        viewModel = ViewModelProvider(this, NewsViewModelFactory(repo)).get(NewsViewModel::class.java)
+    val repo = ArticleRepository(requireContext())
+    // Use activity-scoped ViewModel so insert/update events are observed by the list fragment
+    viewModel = ViewModelProvider(requireActivity(), NewsViewModelFactory(repo)).get(NewsViewModel::class.java)
 
         // If args present, populate fields
         val args = arguments
@@ -51,10 +56,41 @@ class AddEditFragment : Fragment() {
             val desc = binding.descriptionEdit.text.toString()
             val url = binding.urlEdit.text.toString()
             val published = binding.publishedAtEdit.text.toString()
-            val article = if (editId >= 0L) Article(editId, title, desc, url, published) else Article(null, title, desc, url, published)
 
-            if (editId >= 0L) viewModel.updateArticle(article) else viewModel.insertArticle(article)
-            findNavController().popBackStack()
+            if (editId >= 0L) {
+                // normal update
+                val article = Article(editId, title, desc, url, published, null)
+                viewModel.updateArticle(article)
+                findNavController().popBackStack()
+            } else {
+                // We're in create mode. Check if a saved article with the same URL exists.
+                if (url.isNotBlank()) {
+                    // perform DB lookup off the main thread
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val existing = repo.getByUrl(url)
+                        if (existing != null) {
+                            // convert to main thread update
+                            val article = Article(existing.id, title, desc, url, published, null)
+                            withContext(Dispatchers.Main) {
+                                viewModel.updateArticle(article)
+                                findNavController().popBackStack()
+                            }
+                        } else {
+                            // safe insert
+                            val article = Article(null, title, desc, url, published, null)
+                            withContext(Dispatchers.Main) {
+                                viewModel.insertArticle(article)
+                                findNavController().popBackStack()
+                            }
+                        }
+                    }
+                } else {
+                    // no URL to match, just insert
+                    val article = Article(null, title, desc, url, published, null)
+                    viewModel.insertArticle(article)
+                    findNavController().popBackStack()
+                }
+            }
         }
 
         binding.cancelButton.setOnClickListener {

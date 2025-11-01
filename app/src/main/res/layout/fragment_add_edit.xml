@@ -44,14 +44,16 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="Save" />
+                android:text="Save"
+                android:textColor="@color/dark_gray" />
 
             <Button
                 android:id="@+id/cancelButton"
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="Cancel" />
+                android:text="Cancel"
+                android:textColor="@color/dark_gray" />
 
         </LinearLayout>
 

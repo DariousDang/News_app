@@ -8,7 +8,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import com.example.news.model.Article
 
 private const val DB_NAME = "articles.db"
-private const val DB_VERSION = 1
+private const val DB_VERSION = 2
 private const val TABLE = "articles"
 
 class ArticleDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
@@ -20,15 +20,27 @@ class ArticleDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, nul
               title TEXT NOT NULL,
               description TEXT,
               url TEXT,
-              publishedAt TEXT
+              publishedAt TEXT,
+              imageUrl TEXT
             )
         """.trimIndent()
         db.execSQL(create)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE")
-        onCreate(db)
+        // Simple migration: add imageUrl column when upgrading from version 1 -> 2
+        if (oldVersion < 2) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE ADD COLUMN imageUrl TEXT")
+            } catch (e: Exception) {
+                // fallback: recreate table
+                db.execSQL("DROP TABLE IF EXISTS $TABLE")
+                onCreate(db)
+            }
+        } else {
+            db.execSQL("DROP TABLE IF EXISTS $TABLE")
+            onCreate(db)
+        }
     }
 
     fun insertArticle(article: Article): Long {
@@ -36,6 +48,7 @@ class ArticleDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, nul
             put("title", article.title)
             put("description", article.description)
             put("url", article.url)
+            put("imageUrl", article.imageUrl)
             put("publishedAt", article.publishedAt)
         }
         return writableDatabase.insert(TABLE, null, cv)
@@ -47,6 +60,7 @@ class ArticleDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, nul
             put("title", article.title)
             put("description", article.description)
             put("url", article.url)
+            put("imageUrl", article.imageUrl)
             put("publishedAt", article.publishedAt)
         }
         return writableDatabase.update(TABLE, cv, "id = ?", arrayOf(article.id.toString()))
@@ -73,12 +87,20 @@ class ArticleDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, nul
         return found
     }
 
+    fun getArticleByUrl(url: String): Article? {
+        val cur = readableDatabase.query(TABLE, null, "url = ?", arrayOf(url), null, null, null)
+        val found = if (cur.moveToFirst()) cursorToArticle(cur) else null
+        cur.close()
+        return found
+    }
+
     private fun cursorToArticle(cur: Cursor): Article {
         val id = cur.getLong(cur.getColumnIndexOrThrow("id"))
         val title = cur.getString(cur.getColumnIndexOrThrow("title"))
         val description = cur.getString(cur.getColumnIndexOrThrow("description"))
         val url = cur.getString(cur.getColumnIndexOrThrow("url"))
         val publishedAt = cur.getString(cur.getColumnIndexOrThrow("publishedAt"))
-        return Article(id = id, title = title ?: "", description = description, url = url, publishedAt = publishedAt)
+        val imageUrl = try { cur.getString(cur.getColumnIndexOrThrow("imageUrl")) } catch (e: Exception) { null }
+        return Article(id = id, title = title ?: "", description = description, url = url, publishedAt = publishedAt, imageUrl = imageUrl)
     }
 }

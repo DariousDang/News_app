@@ -7,10 +7,11 @@
 
     <ImageView
         android:id="@+id/item_icon"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
         android:layout_marginEnd="8dp"
-        android:contentDescription="icon" />
+        android:contentDescription="thumbnail"
+        android:scaleType="centerCrop" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -23,22 +24,33 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textStyle="bold"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:textColor="@color/black" />
 
         <TextView
             android:id="@+id/item_subtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="12sp"
-            android:textColor="@android:color/darker_gray" />
+            android:textColor="@color/mid_gray" />
 
     </LinearLayout>
 
     <ImageView
-        android:id="@+id/item_save"
+        android:id="@+id/item_bookmark"
         android:layout_width="36dp"
         android:layout_height="36dp"
-        android:contentDescription="save"
-        android:src="@android:drawable/ic_menu_save" />
+        android:contentDescription="bookmark"
+        android:src="@drawable/ic_bookmark_border"
+        android:tint="@color/dark_gray"
+        android:layout_marginEnd="8dp" />
+
+    <ImageView
+        android:id="@+id/item_share"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:contentDescription="share"
+        android:src="@android:drawable/ic_menu_share"
+        android:tint="@color/dark_gray" />
 
 </LinearLayout>
